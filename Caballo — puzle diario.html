@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Caballo — puzle diario</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#e8edf1; --fg:#14212e; --muted:#5d6b78; --card:#f7f9fb;
+  --sq1:#f7f9fb; --sq2:#a9bccb; --block:#1b2733; --block2:#2a3846;
+  --knight:#14212e; --goal:#1c9a87; --way:#e9a917; --ring:#1c9a87;
+  --good:#2e9e5b; --over:#e9a917; --line:rgba(20,33,46,.14);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0e161e; --fg:#e8eef3; --muted:#8fa0af; --card:#17222c;
+    --sq1:#2a3a48; --sq2:#1b2833; --block:#05090d; --block2:#0d151c;
+    --knight:#f4f7fa; --goal:#3ec7b1; --way:#f2b632; --ring:#3ec7b1; --line:rgba(232,238,243,.16);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0e161e; --fg:#e8eef3; --muted:#8fa0af; --card:#17222c;
+  --sq1:#2a3a48; --sq2:#1b2833; --block:#05090d; --block2:#0d151c;
+  --knight:#f4f7fa; --goal:#3ec7b1; --way:#f2b632; --ring:#3ec7b1; --line:rgba(232,238,243,.16);
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);-webkit-text-size-adjust:100%}
+body{
+  margin:0;background:var(--bg);color:var(--fg);
+  font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  display:flex;justify-content:center;min-height:100vh;
+}
+main{width:min(100%,440px);padding:16px 16px 40px;display:flex;flex-direction:column;align-items:center;gap:14px}
+header{width:100%;display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+h1{font-family:"Fraunces",Georgia,"Times New Roman",serif;font-weight:900;font-size:34px;line-height:1;margin:0;letter-spacing:-.01em}
+.meta{font-size:14px;color:var(--muted);text-align:right}
+.help{
+  font:inherit;font-weight:700;width:28px;height:28px;border-radius:50%;margin-left:6px;cursor:pointer;
+  border:2px solid var(--fg);background:transparent;color:var(--fg);padding:0;line-height:1;
+}
+.help:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+.modal{position:fixed;inset:0;z-index:10;background:rgba(5,9,13,.6);display:none;align-items:center;justify-content:center;padding:16px}
+.modal.show{display:flex}
+.card{
+  width:min(100%,400px);max-height:100%;overflow:auto;background:var(--card);color:var(--fg);
+  border-radius:14px;padding:20px;display:flex;flex-direction:column;gap:12px;
+}
+.card h2{font-family:"Fraunces",Georgia,serif;font-size:24px;margin:0}
+.card p{margin:0;font-size:15px}
+.card ol{margin:0;padding-left:20px;font-size:15px;display:flex;flex-direction:column;gap:6px}
+.demo{width:min(100%,220px);aspect-ratio:1;align-self:center;display:block}
+.rule{width:100%;margin:0;font-size:15px;color:var(--muted)}
+.rule b{color:var(--fg);font-weight:600}
+.rule .w{color:var(--way);font-weight:700}
+
+.hud{width:100%;display:flex;gap:10px}
+.stat{flex:1;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;display:flex;justify-content:space-between;align-items:baseline}
+.stat span{font-size:13px;color:var(--muted)}
+.stat strong{font-size:22px;font-variant-numeric:tabular-nums}
+.stat.way strong{color:var(--muted)}
+.stat.way.ok strong{color:var(--good)}
+
+.board{
+  --s:min(calc(100vw - 32px),408px);
+  width:var(--s);height:var(--s);
+  display:grid;grid-template-columns:repeat(4,1fr);grid-template-rows:repeat(4,1fr);
+  border-radius:6px;overflow:hidden;border:3px solid var(--fg);
+  touch-action:manipulation;
+}
+.cell{
+  position:relative;border:0;padding:0;margin:0;cursor:default;
+  font:inherit;color:inherit;display:grid;place-items:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.cell.l{background:var(--sq1)} .cell.d{background:var(--sq2)}
+.cell.block{background:repeating-linear-gradient(135deg,var(--block) 0 7px,var(--block2) 7px 14px)}
+.cell.seen::before{content:"";position:absolute;inset:0;background:var(--goal);opacity:.16}
+.cell.go{cursor:pointer}
+.cell.go::after{
+  content:"";position:absolute;width:26%;height:26%;border-radius:50%;
+  background:var(--ring);opacity:.85;
+}
+.cell.go:hover::before,.cell.go:focus-visible::before{content:"";position:absolute;inset:0;box-shadow:inset 0 0 0 4px var(--ring)}
+.cell:focus-visible{outline:3px solid var(--fg);outline-offset:-3px}
+.mark{
+  position:absolute;font-weight:800;line-height:1;pointer-events:none;
+  font-size:clamp(20px,8.5vw,34px);
+}
+.mark.a{color:var(--muted);opacity:.75}
+.mark.b{color:#fff;background:var(--goal);width:52%;height:52%;border-radius:50%;display:grid;place-items:center;font-size:clamp(18px,8vw,32px)}
+.mark.w{color:var(--way);font-size:clamp(30px,12vw,50px)}
+.mark.w.done{color:var(--good)}
+.cell.here .mark{top:4px;left:5px;font-size:15px;width:auto;height:auto;background:none;border-radius:0;display:block}
+.cell.here .mark.b{color:var(--goal)}
+.knight{
+  position:relative;z-index:1;font-size:clamp(40px,16vw,68px);line-height:1;color:var(--knight);
+  transition:transform .12s ease-out;
+}
+.cell.pop .knight{animation:pop .16s ease-out}
+@keyframes pop{from{transform:scale(.7)}to{transform:scale(1)}}
+.cell.shake{animation:shake .25s}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+@media (prefers-reduced-motion:reduce){.cell.pop .knight,.cell.shake{animation:none}}
+
+.actions{display:flex;gap:10px;width:100%}
+button.btn{
+  flex:1;font:inherit;font-weight:600;padding:12px 14px;border-radius:10px;cursor:pointer;
+  border:2px solid var(--fg);background:transparent;color:var(--fg);
+}
+button.btn.primary{background:var(--fg);color:var(--bg)}
+button.btn:disabled{opacity:.35;cursor:default}
+button.btn:focus-visible{outline:3px solid var(--ring);outline-offset:2px}
+.note{font-size:13px;color:var(--muted);margin:0;text-align:center}
+.msg{min-height:22px;margin:0;font-size:15px;text-align:center;color:var(--muted)}
+
+.result{width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:none;flex-direction:column;gap:12px}
+.result.show{display:flex}
+.result h2{font-family:"Fraunces",Georgia,serif;font-size:24px;margin:0}
+.result .big{font-size:15px;color:var(--muted);margin:0}
+.share{
+  width:100%;resize:none;font:15px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+  background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+}
+.stats{display:flex;justify-content:space-between;text-align:center}
+.stats div{flex:1}
+.stats strong{display:block;font-size:24px;font-variant-numeric:tabular-nums}
+.stats span{font-size:13px;color:var(--muted)}
+.next{text-align:center;font-size:14px;color:var(--muted);margin:0}
+.next b{color:var(--fg);font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Caballo</h1>
+    <div class="meta"><span id="meta"></span> <button class="help" id="helpBtn" aria-label="Cómo se juega">?</button></div>
+  </header>
+  <p class="rule">Llevá el caballo de <b>A</b> a <b>B</b> pasando antes por la <span class="w">★</span>. Cada salto suma 1: intentá igualar el par.</p>
+
+  <div class="hud">
+    <div class="stat"><span>Saltos</span><strong id="count">0</strong></div>
+    <div class="stat way" id="wayStat"><span>Estrella</span><strong id="wayVal">—</strong></div>
+  </div>
+
+  <div class="board" id="board" role="grid" aria-label="Tablero de 4 por 4"></div>
+  <p class="msg" id="msg"></p>
+
+  <div class="actions">
+    <button class="btn" id="undo">Deshacer</button>
+  </div>
+  <p class="note">Deshacer cuenta como un salto.</p>
+
+  <section class="result" id="result" aria-live="polite">
+    <h2 id="resTitle"></h2>
+    <p class="big" id="resSub"></p>
+    <textarea class="share" id="shareText" rows="4" readonly aria-label="Resultado para compartir"></textarea>
+    <button class="btn primary" id="shareBtn">Copiar resultado</button>
+    <div class="stats">
+      <div><strong id="stPlayed">0</strong><span>Jugados</span></div>
+      <div><strong id="stPerfect">0</strong><span>Par perfecto</span></div>
+      <div><strong id="stStreak">0</strong><span>Racha</span></div>
+    </div>
+    <p class="next">Próximo puzle en <b id="cd">--:--:--</b></p>
+  </section>
+</main>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="card">
+    <h2 id="mTitle">Cómo se mueve el caballo</h2>
+    <svg class="demo" id="demo" viewBox="0 0 250 250" aria-hidden="true"></svg>
+    <p>Salta en <b>L</b>: 2 casillas en línea recta y 1 al costado. Puede pasar por encima de todo, pero no puede caer en las casillas rayadas.</p>
+    <ol>
+      <li>Andá de <b>A</b> a <b>B</b>, pasando antes por la <b style="color:var(--way)">★</b>.</li>
+      <li>Los puntos verdes te muestran a dónde podés saltar.</li>
+      <li>Cada salto suma 1, y deshacer también. El <b>par</b> es el mínimo posible.</li>
+    </ol>
+    <button class="btn primary" id="modalClose">Jugar</button>
+  </div>
+</div>
+
+<script>
+const N = 4, CELLS = N * N;
+const DELTAS = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+const NBR = Array.from({ length: CELLS }, (_, i) => {
+  const r = Math.floor(i / N), c = i % N, out = [];
+  for (const [dr, dc] of DELTAS) {
+    const rr = r + dr, cc = c + dc;
+    if (rr >= 0 && rr < N && cc >= 0 && cc < N) out.push(rr * N + cc);
+  }
+  return out;
+});
+
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function hashStr(s) {
+  let h = 1779033703 ^ s.length;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return h >>> 0;
+}
+
+// Shortest route A -> W -> B (state = cell + "waypoint visited" flag).
+// Returns par (min jumps) and how many distinct optimal routes exist.
+function solve(A, B, W, blocked) {
+  const dist = new Array(CELLS * 2).fill(-1);
+  const ways = new Array(CELLS * 2).fill(0);
+  const q = [A * 2];
+  dist[A * 2] = 0; ways[A * 2] = 1;
+  for (let h = 0; h < q.length; h++) {
+    const cur = q[h], c = cur >> 1, f = cur & 1;
+    for (const n of NBR[c]) {
+      if (blocked[n]) continue;
+      const ns = n * 2 + (f | (n === W ? 1 : 0));
+      if (dist[ns] < 0) { dist[ns] = dist[cur] + 1; ways[ns] = ways[cur]; q.push(ns); }
+      else if (dist[ns] === dist[cur] + 1) ways[ns] += ways[cur];
+    }
+  }
+  const g = B * 2 + 1;
+  return dist[g] < 0 ? null : { par: dist[g], ways: ways[g] };
+}
+
+// Plain shortest distance A -> B ignoring the waypoint (to make sure the waypoint matters).
+function plainDist(A, B, blocked) {
+  const d = new Array(CELLS).fill(-1); d[A] = 0;
+  const q = [A];
+  for (let h = 0; h < q.length; h++) {
+    for (const n of NBR[q[h]]) if (!blocked[n] && d[n] < 0) { d[n] = d[q[h]] + 1; q.push(n); }
+  }
+  return d[B];
+}
+
+// Difficulty by weekday (0 = Sunday): minimum par wanted and max allowed optimal routes.
+const DIFF = [
+  { name: 'Experto', minPar: 7, maxPar: 8, maxWays: 3 },
+  { name: 'Fácil',   minPar: 3, maxPar: 4, maxWays: 6 },
+  { name: 'Fácil',   minPar: 4, maxPar: 5, maxWays: 5 },
+  { name: 'Media',   minPar: 5, maxPar: 5, maxWays: 4 },
+  { name: 'Media',   minPar: 5, maxPar: 6, maxWays: 4 },
+  { name: 'Difícil', minPar: 6, maxPar: 7, maxWays: 3 },
+  { name: 'Difícil', minPar: 6, maxPar: 7, maxWays: 3 },
+];
+
+function generate(dateKey, dow) {
+  const rng = mulberry32(hashStr('caballo-v2-' + dateKey));
+  const d = DIFF[dow];
+  let best = null;
+  for (let attempt = 0; attempt < 8000; attempt++) {
+    const idx = Array.from({ length: CELLS }, (_, i) => i);
+    for (let i = CELLS - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [idx[i], idx[j]] = [idx[j], idx[i]];
+    }
+    const A = idx[0], B = idx[1], W = idx[2];
+    const k = 2 + Math.floor(rng() * 3); // 2 to 4 blocked squares
+    const blocked = new Array(CELLS).fill(false);
+    for (let i = 0; i < k; i++) blocked[idx[3 + i]] = true;
+    const s = solve(A, B, W, blocked);
+    if (!s) continue;
+    const pd = plainDist(A, B, blocked);
+    if (pd < 0 || s.par <= pd) continue; // waypoint must force a detour
+    const cand = { A, B, W, blocked, par: s.par, ways: s.ways, diff: d.name };
+    if (s.par >= d.minPar && s.par <= d.maxPar && s.ways <= d.maxWays) return cand;
+    if (!best || s.par > best.par || (s.par === best.par && s.ways < best.ways)) best = cand;
+  }
+  return best;
+}
+
+function dayNumber(y, m, d) {
+  return Math.round((Date.UTC(y, m, d) - Date.UTC(2026, 8, 28)) / 864e5) + 1;
+}
+
+
+
+(function () {
+  // ---- date / puzzle ----
+  const qd = new URLSearchParams(location.search).get('d');
+  let now = new Date();
+  if (qd && /^\d{4}-\d{2}-\d{2}$/.test(qd)) { const [y, m, d] = qd.split('-').map(Number); now = new Date(y, m - 1, d); }
+  const pad = n => String(n).padStart(2, '0');
+  const dateKey = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  const num = dayNumber(now.getFullYear(), now.getMonth(), now.getDate());
+  const P = generate(dateKey, now.getDay());
+
+  // ---- storage (always guarded) ----
+  const store = {
+    get(k) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  };
+  const SKEY = 'caballo4:' + dateKey, TKEY = 'caballo4:stats';
+
+  // ---- state ----
+  let path = [P.A], count = 0, done = false;
+  const saved = store.get(SKEY);
+  if (saved && Array.isArray(saved.path) && saved.path[0] === P.A) { path = saved.path; count = saved.count | 0; done = !!saved.done; }
+
+  const $ = id => document.getElementById(id);
+  const board = $('board'), msg = $('msg');
+  $('meta').innerHTML = `#${num} · ${P.diff}<br>par ${P.par}`.replace('par ' + P.par, 'par ' + P.par);
+  $('meta').textContent = `Nº ${num} · ${P.diff}`;
+
+  const cells = [];
+  for (let i = 0; i < CELLS; i++) {
+    const b = document.createElement('button');
+    const r = Math.floor(i / N), c = i % N;
+    b.className = 'cell ' + ((r + c) % 2 ? 'd' : 'l') + (P.blocked[i] ? ' block' : '');
+    b.setAttribute('role', 'gridcell');
+    b.dataset.i = i;
+    const label = 'ABCD'[c] + (N - r);
+    b.setAttribute('aria-label', label + (P.blocked[i] ? ', bloqueada' : ''));
+    b.addEventListener('click', () => tap(i));
+    board.appendChild(b); cells.push(b);
+  }
+
+  const cur = () => path[path.length - 1];
+  const wayDone = () => path.includes(P.W);
+
+  function render(popIdx) {
+    const here = cur(), valid = new Set(done ? [] : NBR[here].filter(n => !P.blocked[n]));
+    const seen = new Set(path), wd = wayDone();
+    cells.forEach((b, i) => {
+      let cls = 'cell ' + (((Math.floor(i / N) + i % N) % 2) ? 'd' : 'l');
+      if (P.blocked[i]) cls += ' block';
+      if (seen.has(i) && !P.blocked[i]) cls += ' seen';
+      if (valid.has(i)) cls += ' go';
+      if (i === here) cls += ' here';
+      if (i === popIdx) cls += ' pop';
+      b.className = cls;
+      let html = '';
+      if (i === P.A) html += '<span class="mark a">A</span>';
+      if (i === P.B) html += '<span class="mark b">B</span>';
+      if (i === P.W) html += `<span class="mark w${wd ? ' done' : ''}">${wd ? '✓' : '★'}</span>`;
+      if (i === here) html += '<span class="knight">♞</span>';
+      b.innerHTML = html;
+      b.disabled = P.blocked[i] || !valid.has(i);
+      b.tabIndex = valid.has(i) ? 0 : -1;
+    });
+    $('count').textContent = count;
+    const ws = $('wayStat'); ws.classList.toggle('ok', wd);
+    $('wayVal').textContent = wd ? '✓' : 'Falta';
+    $('undo').disabled = done || path.length < 2;
+  }
+
+  function persist() { store.set(SKEY, { path, count, done }); }
+
+  function tap(i) {
+    if (done) return;
+    if (!NBR[cur()].includes(i) || P.blocked[i]) { cells[i].classList.add('shake'); return; }
+    path.push(i); count++;
+    msg.textContent = '';
+    if (i === P.B) {
+      if (wayDone()) { done = true; persist(); render(i); finish(true); return; }
+      msg.textContent = 'Llegaste a B, pero te falta pasar por la ★.';
+    }
+    persist(); render(i);
+  }
+
+  $('undo').addEventListener('click', () => {
+    if (done || path.length < 2) return;
+    path.pop(); count++; msg.textContent = ''; persist(); render();
+  });
+
+  // ---- result / share ----
+  function shareText() {
+    let row = '';
+    for (let i = 0; i < count; i++) row += i < P.par ? '🟩' : '🟨';
+    const tail = count === P.par ? ' 🎯' : '';
+    return `Caballo #${num} ♞ ${P.diff}\n${count} saltos (par ${P.par})${tail}\n${row}`;
+  }
+
+  function finish(fresh) {
+    if (fresh) {
+      const st = store.get(TKEY) || { played: 0, perfect: 0, streak: 0, last: '' };
+      const y = new Date(now); y.setDate(y.getDate() - 1);
+      const yk = `${y.getFullYear()}-${pad(y.getMonth() + 1)}-${pad(y.getDate())}`;
+      st.streak = st.last === yk ? st.streak + 1 : 1;
+      st.played++; if (count === P.par) st.perfect++;
+      st.last = dateKey; store.set(TKEY, st);
+    }
+    const st = store.get(TKEY) || { played: 1, perfect: count === P.par ? 1 : 0, streak: 1 };
+    $('stPlayed').textContent = st.played; $('stPerfect').textContent = st.perfect; $('stStreak').textContent = st.streak;
+    const diff = count - P.par;
+    $('resTitle').textContent = diff === 0 ? 'Par perfecto' : `${diff} sobre el par`;
+    $('resSub').textContent = diff === 0
+      ? `Resolviste el puzle en ${count} saltos, el mínimo posible.`
+      : `Lo resolviste en ${count} saltos. Se podía en ${P.par}.`;
+    $('shareText').value = shareText();
+    $('result').classList.add('show');
+    msg.textContent = '';
+    tick();
+    if (fresh) $('result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  $('shareBtn').addEventListener('click', async () => {
+    const t = $('shareText').value, btn = $('shareBtn');
+    let ok = false;
+    try { await navigator.clipboard.writeText(t); ok = true; } catch (e) {
+      try { $('shareText').select(); ok = document.execCommand('copy'); } catch (e2) {}
+    }
+    btn.textContent = ok ? 'Copiado' : 'Seleccioná el texto y copialo';
+    setTimeout(() => { btn.textContent = 'Copiar resultado'; }, 1800);
+  });
+
+  // ---- countdown to next local midnight ----
+  function tick() {
+    const n = new Date(), next = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+    let s = Math.max(0, Math.floor((next - n) / 1000));
+    $('cd').textContent = `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`;
+  }
+  setInterval(tick, 1000);
+
+  // ---- how to play ----
+  const modal = $('modal'), demo = $('demo');
+  let demoTimer = null;
+  function drawDemo(k) {
+    const S = 50, cx = 2, cy = 2;
+    const tg = [[1,-2],[2,-1],[2,1],[1,2],[-1,2],[-2,1],[-2,-1],[-1,-2]]; // [dc,dr]
+    let g = '';
+    for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++)
+      g += `<rect x="${c*S}" y="${r*S}" width="${S}" height="${S}" fill="${(r+c)%2?'var(--sq2)':'var(--sq1)'}"/>`;
+    tg.forEach(([dc, dr], i) => {
+      g += `<circle cx="${(cx+dc)*S+S/2}" cy="${(cy+dr)*S+S/2}" r="${i===k?11:6}" fill="var(--ring)" opacity="${i===k?1:.45}"/>`;
+    });
+    const [dc, dr] = tg[k];
+    const x0 = cx*S+S/2, y0 = cy*S+S/2;
+    // long leg first (2 squares), then 1 to the side
+    const long = Math.abs(dc) === 2;
+    const mx = long ? x0 + dc*S : x0, my = long ? y0 : y0 + dr*S;
+    g += `<polyline points="${x0},${y0} ${mx},${my} ${x0+dc*S},${y0+dr*S}" fill="none" stroke="var(--way)" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="1 9"/>`;
+    g += `<text x="${x0}" y="${y0+18}" text-anchor="middle" font-size="52" fill="var(--knight)">♞</text>`;
+    demo.innerHTML = g;
+  }
+  function openHelp() {
+    modal.classList.add('show'); let k = 0; drawDemo(0);
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reduce) demoTimer = setInterval(() => { k = (k + 1) % 8; drawDemo(k); }, 1100);
+    $('modalClose').focus();
+  }
+  function closeHelp() { modal.classList.remove('show'); clearInterval(demoTimer); store.set('caballo:seen', 1); }
+  $('helpBtn').addEventListener('click', openHelp);
+  $('modalClose').addEventListener('click', closeHelp);
+  modal.addEventListener('click', e => { if (e.target === modal) closeHelp(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.classList.contains('show')) closeHelp(); });
+
+  render();
+  if (done) finish(false);
+  if (!store.get('caballo:seen') && !done) openHelp();
+})();
+</script>
+</body>
+</html>
